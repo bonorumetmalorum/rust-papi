@@ -1,11 +1,10 @@
 language: rust
 
 rust:
-  -stable
+  - stable
 
 branches:
   only: rework
 
 script:
-  -cargo build --verbose --all
-  
+  - cargo build --verbose --all
