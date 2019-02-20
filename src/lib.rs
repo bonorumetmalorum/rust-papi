@@ -5,9 +5,15 @@
 
 extern crate libc;
 extern crate rand;
+extern crate gnuplot;
+extern crate core;
 
 use std::mem;
 use std::sync::{MutexGuard};
+use gnuplot::Figure;
+use core::fmt;
+use std::fmt::Error;
+use std::fmt::Formatter;
 
 #[link(name="stdc++")]
 extern {}
@@ -79,6 +85,7 @@ pub struct CounterSet {
     counters: Vec<Counter>,
     raw_counters: Vec<libc::c_int>,
     values: Vec<libc::c_longlong>,
+	fig: Figure
 }
 
 impl CounterSet {
@@ -92,6 +99,7 @@ impl CounterSet {
             counters: Vec::from(counters),
             raw_counters,
             values,
+			fig: Figure::new()
         }
     }
 
@@ -104,6 +112,12 @@ impl CounterSet {
         accum_counters(&mut self.values[..]);
         self.values.clone()
     }
+
+	pub fn plot(&mut self){
+		let labels = self.counters.iter().map(|v| v.to_string()).collect::<Vec<String>>();
+		self.fig.axes2d().boxes(labels, values, &[]);
+		self.fig.show();
+	}
 }
 
 impl<'a> Drop for CounterSet {
@@ -113,7 +127,7 @@ impl<'a> Drop for CounterSet {
 }
 
 // adapted from papiStdEventDefs.h
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Counter
 {
 	PAPI_L1_DCM = 0x80000000,  /*Level 1 data cache misses */
@@ -231,6 +245,12 @@ pub enum Counter
 	PAPI_VEC_DP,		 /* Double precision vector/SIMD instructions */
 	PAPI_REF_CYC,		 /* Reference clock cycles */
 	PAPI_END			 /*This should always be last! */
+}
+
+impl fmt::Display for Counter {
+	fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+		write!(f, "{:?}", self)
+	}
 }
 
 // Return codes

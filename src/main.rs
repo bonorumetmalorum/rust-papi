@@ -8,9 +8,9 @@ fn main() {
     let start = counters.read();
     let x = fib(14);
     let stop = counters.accum();
-
     println!("Computed fib(14) = {} with {} L1 misses, {} L2 misses",
              x, stop[0] - start[0], stop[1] - start[1]);
+    counters.plot();
 }
 
 fn fib(n: isize) -> isize {
