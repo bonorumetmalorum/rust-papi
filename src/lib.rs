@@ -1,14 +1,13 @@
 //! This package provides bindings to the PAPI performance counters
 //! library.
 
-#![feature(std_misc)]
 #![allow(non_camel_case_types)]
 
 extern crate libc;
 extern crate rand;
 
 use std::mem;
-use std::sync::{MutexGuard, StaticMutex, MUTEX_INIT};
+use std::sync::{MutexGuard};
 
 #[link(name="stdc++")]
 extern {}
@@ -29,19 +28,19 @@ extern {
 
 fn check_status(status: libc::c_int) {
     if status != PAPI_OK {
-        panic!("{}", status)
+        panic!("status of papi: {}", status)
     }
 }
 
-pub unsafe fn is_initialized() -> bool {
-    let _lock = CounterLock::new();
-    let result = PAPI_is_initialized();
+pub fn is_initialized() -> bool {
+    let result = unsafe {PAPI_is_initialized()};
     result != 0
 }
 
-pub unsafe fn num_counters() -> isize {
-    let _lock = CounterLock::new();
-    PAPI_num_counters() as isize
+pub fn num_counters() -> isize {
+	unsafe{
+		PAPI_num_counters() as isize
+	}
 }
 
 fn start_counters(events: &[libc::c_int]) {
@@ -76,31 +75,14 @@ fn accum_counters(values: &mut [libc::c_longlong]) {
     check_status(status);
 }
 
-static mut COUNTER_LOCK : StaticMutex = MUTEX_INIT;
-
-struct CounterLock<'a>(MutexGuard<'a, ()>);
-
-impl<'a> CounterLock<'a> {
-    unsafe fn new() -> CounterLock<'a> {
-        CounterLock(COUNTER_LOCK.lock().unwrap())
-    }
-}
-
-// The only reasonable action for counters_in_use is to
-// retry. Otherwise, you might as well just fail yourself.
-#[derive(PartialEq,Eq)]
-pub enum Action { Retry }
-
-pub struct CounterSet<'a> {
+pub struct CounterSet {
     counters: Vec<Counter>,
     raw_counters: Vec<libc::c_int>,
     values: Vec<libc::c_longlong>,
-    lock: CounterLock<'a>
 }
 
-impl<'a> CounterSet<'a> {
+impl CounterSet {
     pub unsafe fn new(counters: &[Counter]) -> CounterSet {
-        let lock = CounterLock::new();
         let raw_counters
             = counters.iter().map(|x| (*x).clone() as libc::c_int)
             .collect::<Vec<i32>>();
@@ -108,9 +90,8 @@ impl<'a> CounterSet<'a> {
         start_counters(&raw_counters[..]);
         CounterSet {
             counters: Vec::from(counters),
-            raw_counters: raw_counters,
-            values: values,
-            lock: lock
+            raw_counters,
+            values,
         }
     }
 
@@ -125,7 +106,7 @@ impl<'a> CounterSet<'a> {
     }
 }
 
-impl<'a> Drop for CounterSet<'a> {
+impl<'a> Drop for CounterSet {
     fn drop(&mut self) {
         stop_counters(&mut self.values[..]);
     }
