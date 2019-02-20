@@ -8,3 +8,7 @@ branches:
 
 script:
   - cargo build --verbose --all
+
+install:
+  - ./.travis/install-papi.sh
+
