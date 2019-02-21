@@ -9,11 +9,18 @@ extern crate gnuplot;
 extern crate core;
 
 use std::mem;
-use std::sync::{MutexGuard};
 use gnuplot::Figure;
 use core::fmt;
 use std::fmt::Error;
 use std::fmt::Formatter;
+use std::iter::repeat;
+use gnuplot::AxesCommon;
+use gnuplot::PlotOption;
+use gnuplot::Major;
+use gnuplot::Minor;
+use gnuplot::Fix;
+use gnuplot::Tick;
+
 
 #[link(name="stdc++")]
 extern {}
@@ -82,10 +89,40 @@ fn accum_counters(values: &mut [libc::c_longlong]) {
 }
 
 pub struct CounterSet {
-    counters: Vec<Counter>,
-    raw_counters: Vec<libc::c_int>,
-    values: Vec<libc::c_longlong>,
+    pub counters: Vec<Counter>,
+    pub raw_counters: Vec<libc::c_int>,
+    pub values: Vec<libc::c_longlong>,
+}
+
+pub struct Plotter {
+	counter_set: CounterSet,
+	f: (fn() -> ()),
 	fig: Figure
+}
+
+impl Plotter {
+	pub fn new(counter_set: CounterSet, f: (fn() -> ()), fig: Figure) -> Self {
+		Plotter{
+			counter_set,
+			f,
+			fig
+		}
+	}
+	pub fn plot(&mut self){
+		let start_values = self.counter_set.read();
+		(self.f)();
+		let stop_values = self.counter_set.accum();
+		let difference = start_values.iter().zip(stop_values.iter()).map(|(x, y)|{y-x}).collect::<Vec<i64>>();
+		self.fig.axes2d()
+			.boxes_set_width(&self.counter_set.raw_counters, difference, repeat(0.5f32), &[])
+			.set_title("Test plot", &[])
+			.set_x_ticks_custom(
+				&self.counter_set.raw_counters.clone().iter().map(|&x| Major(x as f32 + 0.5, Fix("%. yeet".to_string())))
+					.chain(&self.counter_set.raw_counters.clone().iter().map(|&i| i as f32 + 0.5).map(|m|Minor(m))), &[], &[])
+			;
+		self.fig.set_terminal("wxt", "test");
+		self.fig.show();
+	}
 }
 
 impl CounterSet {
@@ -99,7 +136,6 @@ impl CounterSet {
             counters: Vec::from(counters),
             raw_counters,
             values,
-			fig: Figure::new()
         }
     }
 
@@ -112,12 +148,6 @@ impl CounterSet {
         accum_counters(&mut self.values[..]);
         self.values.clone()
     }
-
-	pub fn plot(&mut self){
-		let labels = self.counters.iter().map(|v| v.to_string()).collect::<Vec<String>>();
-		self.fig.axes2d().boxes(labels, values, &[]);
-		self.fig.show();
-	}
 }
 
 impl<'a> Drop for CounterSet {
